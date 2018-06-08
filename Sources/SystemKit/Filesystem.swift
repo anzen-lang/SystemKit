@@ -336,8 +336,13 @@ public struct Path {
         try Path.remove(entry, recursively: true)
       }
     }
+    #if os(Linux)
+    guard Glibc.remove(path.pathname) == 0
+      else { throw CError(rawValue: errno)! }
+    #else
     guard Darwin.remove(path.pathname) == 0
       else { throw CError(rawValue: errno)! }
+    #endif
   }
 
   /// The result of `stat` for the path.
