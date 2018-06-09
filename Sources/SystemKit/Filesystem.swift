@@ -239,8 +239,6 @@ public struct Path {
   ///   `realpath` on the pathname of the path, which may fail for some reason. In thoses instances,
   ///   the property will be computed as a `nil` value.
   public var resolved: Path? {
-    guard isSymbolicLink
-      else { return normalized }
     let buf = UnsafeMutablePointer<CChar>.allocate(capacity: Int(PATH_MAX + 1))
     defer { buf.deallocate() }
     guard let ptr = realpath(pathname, buf)
@@ -360,10 +358,20 @@ public struct Path {
   }
 
   /// The current working directory.
-  public static var currentWorkingDirectory: Path {
-    let cwd = getcwd(UnsafeMutablePointer(bitPattern: 0), 0)
-    defer { cwd?.deallocate() }
-    return Path(pathname: cwd.map({ String(cString: $0) }) ?? "")
+  ///
+  /// - Remark: Setting the property is done by calling `chdir`. If the call to this function fails
+  ///   for some reason, the program will ends with an unrecoverable error.
+  public static var workingDirectory: Path {
+    get {
+      let cwd = getcwd(UnsafeMutablePointer(bitPattern: 0), 0)
+      defer { cwd?.deallocate() }
+      return Path(pathname: cwd.map({ String(cString: $0) }) ?? "")
+    }
+
+    set {
+      guard chdir(newValue.pathname) == 0
+        else { fatalError(CError(rawValue: errno)!.description) }
+    }
   }
 
   /// A temporary directory.
@@ -374,7 +382,7 @@ public struct Path {
   public static var temporaryDirectory: Path {
     guard let tmpdir = getenv("TMPDIR") else {
       let tmp = Path(pathname: "/tmp")
-      return tmp.exists ? tmp : .currentWorkingDirectory
+      return tmp.exists ? tmp : .workingDirectory
     }
     return Path(pathname: String(cString: tmpdir))
   }
@@ -443,6 +451,7 @@ extension Path: Hashable {
 
   public static func == (lhs: Path, rhs: Path) -> Bool {
     return lhs.pathname == rhs.pathname
+        || lhs.isRelative == rhs.isRelative && lhs.components == rhs.components
   }
 
 }

@@ -51,10 +51,17 @@ final class PathTests: XCTestCase {
     XCTAssertFalse(q.isRelative)
   }
 
+  func testWorkingDirectory() {
+    let tmp = Path.temporaryDirectory.resolved!
+    Path.workingDirectory = tmp
+    XCTAssertEqual(Path.workingDirectory, tmp)
+  }
+
   static var allTests = [
     ("testInit", testInit),
     ("testComponents", testComponents),
     ("testIsRelative", testIsRelative),
+    ("testWorkingDirectory", testWorkingDirectory)
   ]
 
 }
