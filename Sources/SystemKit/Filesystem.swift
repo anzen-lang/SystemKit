@@ -75,54 +75,82 @@ public struct Path {
   }
 
   /// Whether or not the path exists on the filesystem.
+  ///
+  /// - Remark: The value of this property is determined using the result of `stat` on the pathname.
+  ///   If the call to `stat` failed for some reason, the property will be considered false.
+  ///
+  /// - Note: Attempting to predicate behavior based on the state of the filesystem is discouraged,
+  ///   as it can cause unexpected results with respect to race conditions. Attempting operations
+  ///   directly and handling potential subsequent errors should be preferred.
   public var exists: Bool {
-    do {
-      let mode = try _stat().st_mode
-      return S_ISDIR(mode) || S_ISREG(mode)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    guard let mode = try? _stat().st_mode
+      else { return false }
+    return S_ISDIR(mode) || S_ISREG(mode)
   }
 
   /// Whether or not the path is a symbolic link.
+  ///
+  /// - Remark: The value of this property is determined using the result of `stat` on the pathname.
+  ///   If the call to `stat` failed for some reason, the property will be considered false.
+  ///
+  /// - Note: Attempting to predicate behavior based on the state of the filesystem is discouraged,
+  ///   as it can cause unexpected results with respect to race conditions. Attempting operations
+  ///   directly and handling potential subsequent errors should be preferred.
   public var isSymbolicLink: Bool {
-    do {
-      return S_ISLNK(try _lstat().st_mode)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    guard let mode = try? _stat().st_mode
+      else { return false }
+    return S_ISLNK(mode)
   }
 
   /// Whether or not the path is a file.
+  ///
+  /// - Remark: The value of this property is determined using the result of `stat` on the pathname.
+  ///   If the call to `stat` failed for some reason, the property will be considered false.
+  ///
+  /// - Note: Attempting to predicate behavior based on the state of the filesystem is discouraged,
+  ///   as it can cause unexpected results with respect to race conditions. Attempting operations
+  ///   directly and handling potential subsequent errors should be preferred.
   public var isFile: Bool {
-    do {
-      return S_ISREG(try _stat().st_mode)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    guard let mode = try? _stat().st_mode
+      else { return false }
+    return S_ISREG(mode)
   }
 
   /// Whether or not the path is a directory.
+  ///
+  /// - Remark: The value of this property is determined using the result of `stat` on the pathname.
+  ///   If the call to `stat` failed for some reason, the property will be considered false.
+  ///
+  /// - Note: Attempting to predicate behavior based on the state of the filesystem is discouraged,
+  ///   as it can cause unexpected results with respect to race conditions. Attempting operations
+  ///   directly and handling potential subsequent errors should be preferred.
   public var isDirectory: Bool {
-    do {
-      return S_ISDIR(try _stat().st_mode)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    guard let mode = try? _stat().st_mode
+      else { return false }
+    return S_ISDIR(mode)
   }
 
   /// The permissions associated with the path.
-  public var permissions: PermissionTriplet {
+  ///
+  /// - Remark: This property is an optional, because it relies on the result of a call to `stat` on
+  ///   the pathname of the path, which may fail for some reason. In thoses instances, the property
+  ///   will be computed as a `nil` value.
+  ///   Setting the property is done by calling `chmod`. If the call to this function fails for some
+  ///   reason, the program will ends with an unrecoverable error. Setting the property to a `nil`
+  ///   value is a no-op.
+  ///
+  /// - Note: Attempting to predicate behavior based on the state of the filesystem is discouraged,
+  ///   as it can cause unexpected results with respect to race conditions. Attempting operations
+  ///   directly and handling potential subsequent errors should be preferred.
+  public var permissions: PermissionTriplet? {
     get {
-      do {
-        return PermissionTriplet(rawValue: try _stat().st_mode)
-      } catch {
-        fatalError(String(describing: error))
-      }
+      return (try? _stat().st_mode).map { PermissionTriplet(rawValue: $0) }
     }
 
     set {
-      guard chmod(pathname, newValue.rawValue) == 0
+      guard let mode = newValue?.rawValue
+        else { return }
+      guard chmod(pathname, mode) == 0
         else { fatalError(CError(rawValue: errno)!.description) }
     }
   }
@@ -176,13 +204,17 @@ public struct Path {
   /// The resolved form of the path.
   ///
   /// The resolved from is obtained by following symlinks in the normalized form.
-  public var resolved: Path {
+  ///
+  /// - Remark: This property is an optional, because it relies on the result of a call to
+  ///   `realpath` on the pathname of the path, which may fail for some reason. In thoses instances,
+  ///   the property will be computed as a `nil` value.
+  public var resolved: Path? {
     guard isSymbolicLink
       else { return normalized }
     let buf = UnsafeMutablePointer<CChar>.allocate(capacity: Int(PATH_MAX + 1))
     defer { buf.deallocate() }
     guard let ptr = realpath(pathname, buf)
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { return nil }
     return Path(pathname: String(cString: ptr))
   }
 
@@ -486,6 +518,12 @@ extension LocalFile {
     return try body(Self(path: Path(pathname: pathname)))
   }
 
+  // MARK: Safe methods
+
+  public func safeByteCount() throws -> Int {
+    return try Int(path._stat().st_size)
+  }
+
 }
 
 public struct BinaryFile: LocalFile {
@@ -500,14 +538,20 @@ public struct BinaryFile: LocalFile {
   public let path: Path
 
   public func read(count: Int, from offset: Int) -> CharSequence {
-    do {
-      return try fallibleRead(count: count, from: offset)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    return try! safeRead(count: count, from: offset)
   }
 
-  public func fallibleRead(count: Int, from offset: Int) throws -> CharSequence {
+  public func read() -> CharSequence {
+    return try! safeRead()
+  }
+
+  public func write<S>(_ elements: S) where S : Sequence, S.Element == Char {
+    return try! safeWrite(elements)
+  }
+
+  // MARK: Safe methods
+
+  public func safeRead(count: Int, from offset: Int) throws -> CharSequence {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -520,19 +564,11 @@ public struct BinaryFile: LocalFile {
     return Array(buffer.prefix(readCount))
   }
 
-  public func read() -> CharSequence {
-    return read(count: byteCount, from: 0)
+  public func safeRead() throws -> CharSequence {
+    return try safeRead(count: safeByteCount(), from: 0)
   }
 
-  public func write<S>(_ elements: S) where S : Sequence, S.Element == Char {
-    do {
-      return try fallibleWrite(elements)
-    } catch {
-      fatalError(String(describing: error))
-    }
-  }
-
-  public func fallibleWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Char {
+  public func safeWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Char {
     guard let pointer = fopen(path.pathname, "a")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -559,14 +595,20 @@ public struct TextFile: LocalFile {
   public let path: Path
 
   public func read(count: Int, from offset: Int) -> String {
-    do {
-      return try fallibleRead(count: count, from: offset)
-    } catch {
-      fatalError(String(describing: error))
-    }
+    return try! safeRead(count: count, from: offset)
   }
 
-  public func fallibleRead(count: Int, from offset: Int) throws -> String {
+  public func read() -> CharSequence {
+    return try! safeRead()
+  }
+
+  public func write<S>(_ elements: S) where S : Sequence, S.Element == Character {
+    return try! safeWrite(elements)
+  }
+
+  // MARK: Safe methods
+
+  public func safeRead(count: Int, from offset: Int) throws -> String {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -582,15 +624,7 @@ public struct TextFile: LocalFile {
     return String(buffer.dropFirst(offset).map({ Character(Unicode.Scalar(UInt32($0))!) }))
   }
 
-  public func read() -> CharSequence {
-    do {
-      return try fallibleRead()
-    } catch {
-      fatalError(String(describing: error))
-    }
-  }
-
-  public func fallibleRead() throws -> CharSequence {
+  public func safeRead() throws -> CharSequence {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -604,15 +638,7 @@ public struct TextFile: LocalFile {
     return String(cString: buffer)
   }
 
-  public func write<S>(_ elements: S) where S : Sequence, S.Element == Character {
-    do {
-      return try fallibleWrite(elements)
-    } catch {
-      fatalError(String(describing: error))
-    }
-  }
-
-  public func fallibleWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Character {
+  public func safeWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Character {
     guard let pointer = fopen(path.pathname, "a")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
