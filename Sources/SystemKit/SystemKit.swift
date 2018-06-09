@@ -14,4 +14,12 @@ public struct System {
   /// The standard error.
   public static let err = Console(ostream: stderr)
 
+  public static func exit(status: Int32) -> Never {
+    #if os(Linux)
+    Glibc.exit(status)
+    #else
+    Darwin.exit(status)
+    #endif
+  }
+
 }
