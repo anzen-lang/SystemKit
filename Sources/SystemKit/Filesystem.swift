@@ -352,7 +352,7 @@ public struct Path {
 
   /// Creates an iterator that iterates over the files and sub-directories of the path.
   public func makeDirectoryIterator() throws -> DirectoryIterator {
-    guard let iterator = DirectoryIterator(directoryPath: self)
+    guard let iterator = DirectoryIterator(base: self)
       else { throw CError(rawValue: errno)! }
     return iterator
   }
@@ -438,7 +438,7 @@ public struct Path {
 extension Path: Sequence {
 
   public func makeIterator() -> DirectoryIterator {
-    return DirectoryIterator(directoryPath: self)!
+    return DirectoryIterator(base: self)!
   }
 
 }
@@ -475,10 +475,11 @@ extension Path: CustomStringConvertible {
 /// Class representing an iterator over the entities of a directory.
 public class DirectoryIterator: IteratorProtocol {
 
-  fileprivate init?(directoryPath: Path) {
-    dir = opendir(directoryPath.pathname)
+  fileprivate init?(base: Path) {
+    dir = opendir(base.pathname)
     guard dir != nil
       else { return nil }
+    self.base = base
   }
 
   deinit {
@@ -487,6 +488,7 @@ public class DirectoryIterator: IteratorProtocol {
     }
   }
 
+  public let base: Path
   private let dir: UnsafeMutablePointer<DIR>?
 
   public func next() -> Path? {
@@ -496,7 +498,7 @@ public class DirectoryIterator: IteratorProtocol {
       let pathname = String(cString: buf)
       guard pathname != "." && pathname != ".."
         else { continue }
-      return Path(pathname: pathname)
+      return base.joined(with: pathname)
     }
     return nil
   }
