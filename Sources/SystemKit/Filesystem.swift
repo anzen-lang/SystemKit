@@ -437,10 +437,13 @@ public protocol FileLike {
   associatedtype Char
   associatedtype CharSequence: Sequence where CharSequence.Element == Char
 
-  /// Read up to `count` elements from the file object, skipping `offset` elements.
+  /// Reads up to `count` elements from the file object, skipping `offset` elements.
   func read(count: Int, from offset: Int) -> CharSequence
 
-  /// Write a sequence of elements into the file object.
+  /// Reads the entire file.
+  func read() -> CharSequence
+
+  /// Writes a sequence of elements into the file object.
   func write<S>(_ elements: S) where S: Sequence, S.Element == Char
 
   /// The size of the file, in bytes (i.e. 8-bit characters).
@@ -497,8 +500,16 @@ public struct BinaryFile: LocalFile {
   public let path: Path
 
   public func read(count: Int, from offset: Int) -> CharSequence {
+    do {
+      return try fallibleRead(count: count, from: offset)
+    } catch {
+      fatalError(String(describing: error))
+    }
+  }
+
+  public func fallibleRead(count: Int, from offset: Int) throws -> CharSequence {
     guard let pointer = fopen(path.pathname, "r")
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
 
     var buffer = CharSequence(repeating: 0, count: count)
@@ -509,9 +520,21 @@ public struct BinaryFile: LocalFile {
     return Array(buffer.prefix(readCount))
   }
 
+  public func read() -> CharSequence {
+    return read(count: byteCount, from: 0)
+  }
+
   public func write<S>(_ elements: S) where S : Sequence, S.Element == Char {
+    do {
+      return try fallibleWrite(elements)
+    } catch {
+      fatalError(String(describing: error))
+    }
+  }
+
+  public func fallibleWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Char {
     guard let pointer = fopen(path.pathname, "a")
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
 
     let buffer = Array(elements)
@@ -519,7 +542,7 @@ public struct BinaryFile: LocalFile {
       fwrite($0.baseAddress!, MemoryLayout<Char>.size, buffer.count, pointer)
     }
     guard writeCount == buffer.count
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
   }
 
 }
@@ -536,8 +559,16 @@ public struct TextFile: LocalFile {
   public let path: Path
 
   public func read(count: Int, from offset: Int) -> String {
+    do {
+      return try fallibleRead(count: count, from: offset)
+    } catch {
+      fatalError(String(describing: error))
+    }
+  }
+
+  public func fallibleRead(count: Int, from offset: Int) throws -> String {
     guard let pointer = fopen(path.pathname, "r")
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
 
     setlocale(LC_ALL, "")
@@ -551,9 +582,39 @@ public struct TextFile: LocalFile {
     return String(buffer.dropFirst(offset).map({ Character(Unicode.Scalar(UInt32($0))!) }))
   }
 
+  public func read() -> CharSequence {
+    do {
+      return try fallibleRead()
+    } catch {
+      fatalError(String(describing: error))
+    }
+  }
+
+  public func fallibleRead() throws -> CharSequence {
+    guard let pointer = fopen(path.pathname, "r")
+      else { throw CError(rawValue: errno)! }
+    defer { fclose(pointer) }
+
+    let nitems = byteCount
+    var buffer = [Int8](repeating: 0, count: nitems + 1)
+    try buffer.withUnsafeMutableBytes {
+      guard fread($0.baseAddress!, MemoryLayout<CChar>.size, nitems, pointer) == nitems
+        else { throw CError(rawValue: errno)! }
+    }
+    return String(cString: buffer)
+  }
+
   public func write<S>(_ elements: S) where S : Sequence, S.Element == Character {
+    do {
+      return try fallibleWrite(elements)
+    } catch {
+      fatalError(String(describing: error))
+    }
+  }
+
+  public func fallibleWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Character {
     guard let pointer = fopen(path.pathname, "a")
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
 
     let string = String(elements)
@@ -561,7 +622,7 @@ public struct TextFile: LocalFile {
       fwrite($0, MemoryLayout<CChar>.size, strlen($0), pointer)
     }
     guard writeCount == string.count
-      else { fatalError(CError(rawValue: errno)!.description) }
+      else { throw CError(rawValue: errno)! }
   }
 
 }
