@@ -500,13 +500,13 @@ public protocol FileLike {
   associatedtype CharSequence: Sequence where CharSequence.Element == Char
 
   /// Reads up to `count` elements from the file object, skipping `offset` elements.
-  func read(count: Int, from offset: Int) -> CharSequence
+  func read(count: Int, from offset: Int) throws -> CharSequence
 
   /// Reads the entire file.
-  func read() -> CharSequence
+  func read() throws -> CharSequence
 
   /// Writes a sequence of elements into the file object.
-  func write<S>(_ elements: S) where S: Sequence, S.Element == Char
+  func write<S>(_ elements: S) throws where S: Sequence, S.Element == Char
 
   /// The size of the file, in bytes (i.e. 8-bit characters).
   ///
@@ -567,21 +567,7 @@ public struct BinaryFile: LocalFile {
 
   public let path: Path
 
-  public func read(count: Int, from offset: Int) -> CharSequence {
-    return try! safeRead(count: count, from: offset)
-  }
-
-  public func read() -> CharSequence {
-    return try! safeRead()
-  }
-
-  public func write<S>(_ elements: S) where S : Sequence, S.Element == Char {
-    return try! safeWrite(elements)
-  }
-
-  // MARK: Safe methods
-
-  public func safeRead(count: Int, from offset: Int) throws -> CharSequence {
+  public func read(count: Int, from offset: Int) throws -> CharSequence {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -594,11 +580,11 @@ public struct BinaryFile: LocalFile {
     return Array(buffer.prefix(readCount))
   }
 
-  public func safeRead() throws -> CharSequence {
-    return try safeRead(count: safeByteCount(), from: 0)
+  public func read() throws -> CharSequence {
+    return try read(count: safeByteCount(), from: 0)
   }
 
-  public func safeWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Char {
+  public func write<S>(_ elements: S) throws where S : Sequence, S.Element == Char {
     guard let pointer = fopen(path.pathname, "a")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -624,21 +610,7 @@ public struct TextFile: LocalFile {
 
   public let path: Path
 
-  public func read(count: Int, from offset: Int) -> String {
-    return try! safeRead(count: count, from: offset)
-  }
-
-  public func read() -> CharSequence {
-    return try! safeRead()
-  }
-
-  public func write<S>(_ elements: S) where S : Sequence, S.Element == Character {
-    return try! safeWrite(elements)
-  }
-
-  // MARK: Safe methods
-
-  public func safeRead(count: Int, from offset: Int) throws -> String {
+  public func read(count: Int, from offset: Int) throws -> String {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -654,7 +626,7 @@ public struct TextFile: LocalFile {
     return String(buffer.dropFirst(offset).map({ Character(Unicode.Scalar(UInt32($0))!) }))
   }
 
-  public func safeRead() throws -> CharSequence {
+  public func read() throws -> CharSequence {
     guard let pointer = fopen(path.pathname, "r")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
@@ -668,7 +640,7 @@ public struct TextFile: LocalFile {
     return String(cString: buffer)
   }
 
-  public func safeWrite<S>(_ elements: S) throws where S : Sequence, S.Element == Character {
+  public func write<S>(_ elements: S) throws where S : Sequence, S.Element == Character {
     guard let pointer = fopen(path.pathname, "a")
       else { throw CError(rawValue: errno)! }
     defer { fclose(pointer) }
