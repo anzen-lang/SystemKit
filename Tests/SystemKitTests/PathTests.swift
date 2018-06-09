@@ -10,11 +10,11 @@ final class PathTests: XCTestCase {
     p = Path(pathname: "/foo/bar")
     XCTAssertEqual(p.pathname, "/foo/bar")
     p = Path(pathname: "/foo/bar/")
-    XCTAssertEqual(p.pathname, "/foo/bar")
+    XCTAssertEqual(p.pathname, "/foo/bar/")
     p = Path(pathname: "foo/bar")
     XCTAssertEqual(p.pathname, "foo/bar")
     p = Path(pathname: "foo/bar/")
-    XCTAssertEqual(p.pathname, "foo/bar")
+    XCTAssertEqual(p.pathname, "foo/bar/")
 
     // init(pathname: Sequence<Character>)
     p = Path(pathname: "/foo/bar".prefix(while: { _ in true }))
@@ -23,6 +23,25 @@ final class PathTests: XCTestCase {
     // init(stringLiteral value: String)
     let q: Path = "/foo/bar"
     XCTAssertEqual(q.pathname, "/foo/bar")
+  }
+
+  func testComponents() {
+    var p: Path
+
+    p = Path(pathname: "/foo/bar")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "/foo/bar/")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "foo/bar")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "foo/bar/")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "/foo//bar")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "/foo//bar//")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo", "bar"])
+    p = Path(pathname: "/foo\\//bar")
+    XCTAssertEqual(p.components.map({ String($0) }), ["foo\\/", "bar"])
   }
 
   func testIsRelative() {
@@ -34,6 +53,7 @@ final class PathTests: XCTestCase {
 
   static var allTests = [
     ("testInit", testInit),
+    ("testComponents", testComponents),
     ("testIsRelative", testIsRelative),
   ]
 

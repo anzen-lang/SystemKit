@@ -56,9 +56,7 @@ public struct Path {
 
   /// Constructs a path from a pathname.
   public init(pathname: String) {
-    self.pathname = pathname.hasSuffix("/")
-      ? String(pathname.dropLast())
-      : pathname
+    self.pathname = pathname
   }
 
   /// Constructs a path from a pathname.
@@ -68,6 +66,45 @@ public struct Path {
 
   /// The concrete representation of the path as a character string.
   public let pathname: String
+
+  /// The components of the pathname.
+  public var components: [Substring] {
+    guard pathname != "/"
+      else { return [] }
+
+    var i = pathname.startIndex
+    var j = i
+    var result: [Substring] = []
+
+    while j != pathname.endIndex {
+      if pathname[j] == "/" {
+        guard i != j else {
+          // Skip consecutive separators.
+          j = pathname.index(after: j)
+          i = j
+          continue
+        }
+        result.append(pathname[i ..< j])
+        j = pathname.index(after: j)
+        i = j
+      } else if pathname[j] == "\\" {
+        // Skip escaped separators.
+        j = pathname.index(after: j)
+        if pathname[j] == "/" {
+          j = pathname.index(after: j)
+        }
+      } else {
+        j = pathname.index(after: j)
+      }
+    }
+
+    // Add the last component.
+    if j > i {
+      result.append(pathname[i ..< j])
+    }
+
+    return result
+  }
 
   /// Whether or not the path is relative.
   public var isRelative: Bool {
@@ -158,7 +195,7 @@ public struct Path {
   /// The name of the file this path represents, if any.
   public var filename: Substring? {
     return !pathname.hasSuffix("/")
-      ? pathname.split(separator: "/").last
+      ? components.last
       : nil
   }
 
@@ -172,15 +209,9 @@ public struct Path {
     guard pathname != "/"
       else { return nil }
 
-    var lastSeparatorIndex: String.Index? = nil
-    for i in pathname.indices.dropFirst() {
-      if pathname[i] == "/" {
-        lastSeparatorIndex = i
-      }
-    }
-
-    return lastSeparatorIndex != nil
-      ? Path(pathname: pathname[pathname.startIndex ..< lastSeparatorIndex!])
+    let parentComponents = components.dropLast().joined()
+    return !parentComponents.isEmpty
+      ? Path(pathname: parentComponents)
       : nil
   }
 
@@ -188,7 +219,6 @@ public struct Path {
   ///
   /// The normalized form is obtained by removing redundant separators and up-level references.
   public var normalized: Path {
-    let components = pathname.split(separator: "/")
     return components.reduce(Path(pathname: isRelative ? "" : "/")) { result, component in
       switch component {
       case ".":
@@ -292,8 +322,8 @@ public struct Path {
     guard isRelative || !other.isRelative
       else { return self }
 
-    let lhs = pathname.split(separator: "/")
-    let rhs = other.pathname.split(separator: "/")
+    let lhs = components
+    let rhs = other.components
     var i = 0
     while i < Swift.min(lhs.count, rhs.count) {
       guard lhs[i] == rhs[i] else { break }
@@ -311,8 +341,8 @@ public struct Path {
     guard isRelative == other.isRelative
       else { return nil }
 
-    let lhs = pathname.split(separator: "/")
-    let rhs = other.pathname.split(separator: "/")
+    let lhs = components
+    let rhs = other.components
     let shd = Array(zip(lhs, rhs).prefix(while: ==)).map({ String($0.0) }).joined(separator: "/")
 
     guard !shd.isEmpty
