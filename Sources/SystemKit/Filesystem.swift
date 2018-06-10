@@ -660,7 +660,7 @@ public struct TextFile: LocalFile {
     let writeCount = string.withCString {
       fwrite($0, MemoryLayout<CChar>.size, strlen($0), pointer)
     }
-    guard writeCount == string.count
+    guard writeCount == string.utf8CString.count - 1
       else { throw CError(rawValue: errno)! }
   }
 
