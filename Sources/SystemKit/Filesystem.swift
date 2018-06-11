@@ -313,11 +313,11 @@ public struct Path {
   ///     represent a directory.
   /// - Returns: The relative path that resolves to this path, relative to `other`.
   ///
-  /// - Note: If this path is absolute and `other` is relative, this function will return the
-  ///   former path, unchanged.
+  /// - Note: If one of the paths is absolute and the other is relative, this function will return
+  ///   the this path, unchanged.
   public func relative(to other: Path) -> Path {
     // If the path is absolute, the other should too or they don't share a common prefix.
-    guard isRelative || !other.isRelative
+    guard isRelative == other.isRelative
       else { return self }
 
     let lhs = components
