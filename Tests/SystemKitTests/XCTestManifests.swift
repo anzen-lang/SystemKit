@@ -5,6 +5,7 @@ extension PathTests {
         ("testComponents", testComponents),
         ("testInit", testInit),
         ("testIsRelative", testIsRelative),
+        ("testParent", testParent),
         ("testWorkingDirectory", testWorkingDirectory),
     ]
 }

@@ -1,3 +1,5 @@
+#if !os(Linux)
+
 import XCTest
 @testable import SystemKit
 
@@ -22,3 +24,5 @@ final class ThreadTests: XCTestCase {
   }
 
 }
+
+#endif

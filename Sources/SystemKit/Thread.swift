@@ -1,8 +1,6 @@
-#if os(Linux)
-import Glibc
-#else
+#if !os(Linux)
+
 import Darwin.C
-#endif
 
 public class Thread {
 
@@ -119,3 +117,5 @@ extension System {
   }
 
 }
+
+#endif

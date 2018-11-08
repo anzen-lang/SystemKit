@@ -8,7 +8,8 @@ let package = Package(
   ],
   dependencies: [],
   targets: [
-    .target(name: "SystemKit", dependencies: []),
+    .target(name: "SystemKit", dependencies: ["LinuxBridge"]),
+    .target(name: "LinuxBridge", dependencies: []),
     .testTarget(name: "SystemKitTests", dependencies: ["SystemKit"]),
   ]
 )

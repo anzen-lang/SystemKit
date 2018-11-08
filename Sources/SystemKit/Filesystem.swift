@@ -1,17 +1,24 @@
 #if os(Linux)
 import Glibc
+import LinuxBridge
 #else
 import Darwin.C
+#endif
+
+#if os(Linux)
+public typealias Mode = UInt32
+#else
+public typealias Mode = UInt16
 #endif
 
 /// An enumeration permissions.
 public struct Permission: OptionSet {
 
-  public init(rawValue: UInt16) {
+  public init(rawValue: Mode) {
     self.rawValue = rawValue
   }
 
-  public let rawValue: UInt16
+  public let rawValue: Mode
 
   public static let execute = Permission(rawValue: 1)
   public static let write   = Permission(rawValue: 2)
@@ -32,13 +39,13 @@ public struct PermissionTriplet {
     self.other = other
   }
 
-  public init(rawValue: UInt16) {
+  public init(rawValue: Mode) {
     self.owner = Permission(rawValue: (rawValue & (7 << 6)) >> 6)
     self.group = Permission(rawValue: (rawValue & (7 << 3)) >> 3)
     self.other = Permission(rawValue: rawValue & 7)
   }
 
-  public var rawValue: UInt16 {
+  public var rawValue: Mode {
     return (owner.rawValue << 6) + (group.rawValue << 3) + other.rawValue
   }
 
@@ -484,17 +491,22 @@ public class DirectoryIterator: IteratorProtocol {
 
   deinit {
     if dir != nil {
-      closedir(dir)
+      closedir(dir!)
     }
   }
 
   public let base: Path
+
+  #if os(Linux)
+  private let dir: OpaquePointer?
+  #else
   private let dir: UnsafeMutablePointer<DIR>?
+  #endif
 
   public func next() -> Path? {
-    while let entry = readdir(dir)?.pointee {
+    while let entry = readdir(dir!)?.pointee {
       let mirror = Mirror(reflecting: entry.d_name)
-      let buf = mirror.children.prefix(Int(entry.d_namlen)).map({ $0.value as! CChar }) + [0]
+      let buf = mirror.children.map { $0.value as! CChar }
       let pathname = String(cString: buf)
       guard pathname != "." && pathname != ".."
         else { continue }
@@ -552,7 +564,7 @@ extension LocalFile {
     let template = Path.temporaryDirectory.pathname + prefix + "XXXXXX"
     var buffer = template.utf8CString
     _ = buffer.withUnsafeMutableBufferPointer {
-      return mkstemp($0.baseAddress)
+      return mkstemp($0.baseAddress!)
     }
     let pathname = String(cString: buffer.withUnsafeBufferPointer { $0.baseAddress! })
     defer { remove(pathname) }

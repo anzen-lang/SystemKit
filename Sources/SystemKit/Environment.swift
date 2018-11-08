@@ -68,7 +68,7 @@ public struct Environment: RandomAccessCollection {
     }
 
     public subscript(position: Index) -> String {
-      let key = environ.advanced(by: position.offset).pointee
+      let key: UnsafeMutablePointer! = environ.advanced(by: position.offset).pointee
       guard let cString = getenv(key)
         else { fatalError(CError(rawValue: errno)!.description) }
       return String(cString: cString)
