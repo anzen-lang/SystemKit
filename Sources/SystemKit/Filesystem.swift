@@ -209,10 +209,10 @@ public struct Path {
     guard pathname != "/"
       else { return nil }
 
-    let parentComponents = components.dropLast().joined()
-    return !parentComponents.isEmpty
-      ? Path(pathname: parentComponents)
-      : nil
+    let parentPathname = components.dropLast().joined(separator: "/")
+    return pathname.starts(with: "/")
+      ? Path(pathname: "/" + parentPathname)
+      : Path(pathname: parentPathname)
   }
 
   /// The normalized form of the path.

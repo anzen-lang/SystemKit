@@ -57,4 +57,13 @@ final class PathTests: XCTestCase {
     XCTAssertEqual(Path.workingDirectory, tmp)
   }
 
+  func testParent() {
+    var p: Path
+
+    p = "foo/bar"
+    XCTAssertEqual(p.parent?.pathname, "foo")
+    p = "/foo/bar"
+    XCTAssertEqual(p.parent?.pathname, "/foo")
+  }
+
 }
