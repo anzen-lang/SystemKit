@@ -639,12 +639,24 @@ public struct TextFile: LocalFile {
     defer { fclose(pointer) }
 
     setlocale(LC_ALL, "")
+
+    #if os(Linux)
+    var buffer: [UInt32] = []
+    while buffer.count < (count + offset) {
+      let char = __bridge_fgetwc(pointer)
+      guard char != __bridge_WEOF()
+        else { break }
+      buffer.append(char)
+    }
+    #else
     var buffer: [wint_t] = []
     while buffer.count < (count + offset) {
       let char = fgetwc(pointer)
-      guard char != WEOF else { break }
+      guard char != WEOF
+        else { break }
       buffer.append(char)
     }
+    #endif
 
     return String(buffer.dropFirst(offset).map({ Character(Unicode.Scalar(UInt32($0))!) }))
   }

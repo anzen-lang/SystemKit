@@ -16,18 +16,11 @@ extension TextFileTests {
     ]
 }
 
-extension ThreadTests {
-    static let __allTests = [
-        ("testThinThread", testThinThread),
-    ]
-}
-
 #if !os(macOS)
 public func __allTests() -> [XCTestCaseEntry] {
     return [
         testCase(PathTests.__allTests),
         testCase(TextFileTests.__allTests),
-        testCase(ThreadTests.__allTests),
     ]
 }
 #endif
