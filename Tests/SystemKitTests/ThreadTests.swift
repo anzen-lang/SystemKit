@@ -17,6 +17,8 @@ final class ThreadTests: XCTestCase {
     let ref = try Unmanaged<StringRef>.fromOpaque(thread.join()!)
     defer { ref.release() }
     XCTAssertEqual(ref.takeUnretainedValue().value, "foo")
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + .milliseconds(1), execute: { print(0) })
   }
 
 }

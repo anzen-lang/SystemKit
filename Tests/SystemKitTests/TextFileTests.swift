@@ -19,8 +19,4 @@ final class TextFileTests: XCTestCase {
     }
   }
 
-  static var allTests = [
-    ("testWrite", testWrite),
-  ]
-
 }

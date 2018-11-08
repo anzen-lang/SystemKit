@@ -57,11 +57,4 @@ final class PathTests: XCTestCase {
     XCTAssertEqual(Path.workingDirectory, tmp)
   }
 
-  static var allTests = [
-    ("testInit", testInit),
-    ("testComponents", testComponents),
-    ("testIsRelative", testIsRelative),
-    ("testWorkingDirectory", testWorkingDirectory)
-  ]
-
 }

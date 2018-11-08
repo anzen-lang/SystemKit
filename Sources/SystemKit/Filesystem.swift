@@ -445,8 +445,8 @@ extension Path: Sequence {
 
 extension Path: Hashable {
 
-  public var hashValue: Int {
-    return pathname.hashValue
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(pathname)
   }
 
   public static func == (lhs: Path, rhs: Path) -> Bool {

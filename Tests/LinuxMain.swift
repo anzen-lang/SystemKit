@@ -3,5 +3,6 @@ import XCTest
 import SystemKitTests
 
 var tests = [XCTestCaseEntry]()
-tests += SystemKitTests.allTests()
+tests += SystemKitTests.__allTests()
+
 XCTMain(tests)
