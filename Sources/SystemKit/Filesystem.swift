@@ -208,7 +208,11 @@ public struct Path {
 
   /// The extension of the file this path represents, if any.
   public var fileExtension: Substring? {
-    return filename?.split(separator: ".").last
+    guard let name = filename
+      else { return nil }
+    return name.contains(".")
+      ? name.split(separator: ".").last
+      : nil
   }
 
   /// The path representing the directory in which this path's located.
@@ -226,11 +230,14 @@ public struct Path {
   ///
   /// The normalized form is obtained by removing redundant separators and up-level references.
   public var normalized: Path {
+    guard (pathname != ".") && (pathname != "..")
+      else { return self }
+
     return components.reduce(Path(pathname: isRelative ? "" : "/")) { result, component in
       switch component {
       case ".":
         return result
-      case "..":
+      case ".." where !result.pathname.isEmpty:
         return result.parent ?? result.joined(with: "..")
       default:
         return result.joined(with: String(component))
@@ -273,6 +280,26 @@ public struct Path {
     return hasSuffix(Path(pathname: suffix))
   }
 
+  /// Returns the prefix shared between this path and another.
+  public func prefixShared(with other: Path) -> Path? {
+    guard isRelative == other.isRelative
+      else { return nil }
+
+    let lhs = components
+    let rhs = other.components
+    let shd = Array(zip(lhs, rhs).prefix(while: ==)).map({ String($0.0) }).joined(separator: "/")
+
+    if shd.isEmpty {
+      return isRelative
+        ? nil
+        : "/"
+    } else {
+      return isRelative
+        ? Path(pathname: shd)
+        : Path(pathname: "/" + shd)
+    }
+  }
+
   /// Returns this path joined with one or more paths.
   ///
   /// If the paths that are joined are relative paths, the result will be the concatenations of all
@@ -307,7 +334,7 @@ public struct Path {
   ///
   public func joined(with others: String...) -> Path {
     return others.reduce(self) { result, pathname in
-      !pathname.starts(with: "/")
+      !pathname.starts(with: "/") && !result.pathname.isEmpty
         ? Path(pathname: result.pathname + "/" + pathname)
         : Path(pathname: pathname)
     }
@@ -321,7 +348,7 @@ public struct Path {
   /// - Returns: The relative path that resolves to this path, relative to `other`.
   ///
   /// - Note: If one of the paths is absolute and the other is relative, this function will return
-  ///   the this path, unchanged.
+  ///   this path, unchanged.
   public func relative(to other: Path) -> Path {
     // If the path is absolute, the other should too or they don't share a common prefix.
     guard isRelative == other.isRelative
@@ -339,22 +366,6 @@ public struct Path {
     return rel.isEmpty
       ? Path(pathname: ".")
       : Path(pathname: rel.joined(separator: "/"))
-  }
-
-  /// Returns the prefix shared between this path and another.
-  public func prefixShared(with other: Path) -> Path? {
-    guard isRelative == other.isRelative
-      else { return nil }
-
-    let lhs = components
-    let rhs = other.components
-    let shd = Array(zip(lhs, rhs).prefix(while: ==)).map({ String($0.0) }).joined(separator: "/")
-
-    guard !shd.isEmpty
-      else { return nil }
-    return isRelative
-      ? Path(pathname: shd)
-      : Path(pathname: "/" + shd)
   }
 
   /// Creates an iterator that iterates over the files and sub-directories of the path.
@@ -427,15 +438,6 @@ public struct Path {
     let buf = UnsafeMutablePointer<stat>.allocate(capacity: 1)
     defer { buf.deallocate() }
     guard stat(pathname, buf) == 0
-      else { throw CError(rawValue: errno)! }
-    return buf.pointee
-  }
-
-  /// The result of `lstat` for the path.
-  internal func _lstat() throws -> stat {
-    let buf = UnsafeMutablePointer<stat>.allocate(capacity: 1)
-    defer { buf.deallocate() }
-    guard lstat(pathname, buf) == 0
       else { throw CError(rawValue: errno)! }
     return buf.pointee
   }
